@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>互動式地圖</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body { margin: 0; padding: 0; }
+        /* 設定地圖佔滿全螢幕 */
+        #map { height: 100vh; width: 100%; }
+        
+        /* 自訂 Popup 的樣式 (選用) */
+        .danger-text { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // --- 步驟 1：初始化地圖 ---
+        // 設定中心點為南投山區，方便觀察溪流
+        var map = L.map('map').setView([23.7, 120.9], 10);
+
+        // --- 步驟 2：加入底圖 (Base Map) - NLSC 通用版電子地圖 ---
+        var nlscMap = L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}', {
+            minZoom: 6,
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://maps.nlsc.gov.tw/">國土測繪中心</a>'
+        }).addTo(map);
+        // 定義第二張底圖：正射影像 (PHOTO2)
+		var photoMap = L.tileLayer('https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}', {
+		minZoom: 6,
+		maxZoom: 19,
+		attribution: '© 國土測繪中心'
+		}).addTo(map);
+        // --- 步驟 3：準備土石流潛勢溪流資料 (GeoJSON 格式) ---
+        // 在實務上，這些資料通常來自政府 Open Data 平台下載的 .json 檔
+        // 為了教學方便，我們這裡直接模擬兩條溪流的數據
+        var FlowData = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {
+                        "name": "南投縣-DF00X",
+                        "risk_level": "高",
+                        "village": "神木村"
+                    },
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [
+                            [120.845, 23.575], [120.850, 23.580], [120.855, 23.582], [120.860, 23.585]
+                        ]
+                    }
+                },
+                {
+                    "type": "Feature",
+                    "properties": {
+                        "name": "南投縣-DF00Y",
+                        "risk_level": "中",
+                        "village": "同富村"
+                    },
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [
+                            [120.870, 23.590], [120.875, 23.595], [120.880, 23.592]
+                        ]
+                    }
+                }
+            ]
+        };
+
+        // --- 步驟 4：將向量資料疊加到地圖上 ---
+        var riverLayer = L.geoJSON(FlowData, {
+            // 設定線條樣式
+            style: function(feature) {
+                return {
+                    color: "red",       // 線條顏色
+                    weight: 5,          // 線條粗細
+                    opacity: 0.7        // 透明度
+                };
+            },
+            // 設定互動功能 (點擊後彈出視窗)
+            onEachFeature: function(feature, layer) {
+                var props = feature.properties;
+                var content = `<div class="danger-text">⚠️ 潛勢溪流</div>
+                               <b>編號：</b>${props.name}<br>
+                               <b>村里：</b>${props.village}<br>
+                               <b>風險等級：</b>${props.risk_level}`;
+                layer.bindPopup(content);
+            }
+        }).addTo(map);
+
+        // --- 步驟 5：加入圖層控制器 (Layer Control) ---
+        // 讓使用者可以開關圖層
+        var baseMaps = {
+            "通用版電子地圖": nlscMap, "通用版航照": photoMap,
+		};
+
+        var overlayMaps = {
+            "潛勢溪流": riverLayer
+        };
+        L.control.layers(baseMaps, overlayMaps).addTo(map);
+
+    </script>
+</body>
+</html>
