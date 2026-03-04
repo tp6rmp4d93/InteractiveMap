@@ -85,37 +85,43 @@
                         let res = c[0] + c[1]/60 + c[2]/3600;
                         return (ref === "S" || ref === "W") ? res * -1 : res;
                     };
-                    updateCoords(formatCoord(lat, latRef), formatCoord(lon, lonRef), "📸 已從 EXIF 讀取相片座標");
+        // ✨ 修改處：顯示使用照片拍攝座標
+                    updateCoords(formatCoord(lat, latRef), formatCoord(lon, lonRef), "📸 使用照片拍攝座標");
                 } else {
                     gpsStatus.innerText = "> 相片無座標，正在獲取設備即時定位...";
                     navigator.geolocation.getCurrentPosition(
-                        (p) => updateCoords(p.coords.latitude, p.coords.longitude, "📍 使用當前設備即時定位"),
-                        (err) => { gpsStatus.innerText = "> ❌ 無法獲取定位，請手動確認 GPS 權限"; },
+                        (p) => updateCoords(p.coords.latitude, p.coords.longitude, "📍 使用設備即時定位"),
+                        (err) => { gpsStatus.innerText = "> ❌ 無法獲取定位，請手動輸入座標或地址"; },
                         { enableHighAccuracy: true }
                     );
                 }
             });
         };
 
-        // 2. 更新座標並進行地址反查
+        // 2. 優化地址解析失敗的呈現
         async function updateCoords(lat, lon, source) {
             document.getElementById('lat').value = lat;
             document.getElementById('lon').value = lon;
             gpsStatus.innerHTML = `${source}<br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}`;
             
-            // 調用 GAS doGet 進行地址預覽
             roadNameInput.value = "地址解析中...";
             try {
                 const res = await fetch(`${GAS_URL}?lat=${lat}&lon=${lon}`);
                 const data = await res.json();
-                roadNameInput.value = data.address || "";
+                
+                // ✨ 優化點：如果 GAS 回傳失敗，給予預設提示而非空白
+                if (data.address && data.address !== "無法解析地址") {
+                    roadNameInput.value = data.address;
+                } else {
+                    roadNameInput.value = "自動解析失敗，請手動輸入路名";
+                }
             } catch (e) {
-                roadNameInput.value = "解析失敗，請手動輸入";
+                roadNameInput.value = "連線逾時，請手動輸入地址";
             }
-
+        
             submitBtn.disabled = false;
             submitBtn.innerText = "確認並傳送至雲端";
-            submitBtn.className = "w-full bg-green-800 text-white font-bold py-4 rounded-xl shadow-lg";
+            submitBtn.className = "w-full bg-blue-800 text-white font-bold py-4 rounded-xl shadow-lg";
         }
 
         // 3. 影像處理 (裁切 3:2 與 48px 紅色浮水印)
@@ -147,8 +153,8 @@
 
                     // 加上浮水印 (紅色, Arial, 48px)
                     const d = new Date();
-                    const dateStr = `${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
-                    ctx.font = "bold 48px Arial";
+                    const dateStr = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+                    ctx.font = "bold 120px Arial";
                     ctx.fillStyle = "red";
                     ctx.textAlign = "right";
                     ctx.fillText(dateStr, 2960, 1960);
