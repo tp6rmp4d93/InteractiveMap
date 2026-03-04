@@ -3,152 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>現勘紀錄系統 v2026</title>
+    <title>現勘系統 Pro (修正版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen p-4 flex flex-col items-center">
-
     <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
-        <div class="bg-green-900 text-white p-6 text-center">
-            <h1 class="text-xl font-bold uppercase tracking-widest">現勘紀錄系統 v2026</h1>
-            <p class="text-[10px] opacity-70 mt-1">3000x2000 Output | Auto-Address | Device Tracking</p>
+        <div class="bg-green-900 text-white p-6">
+            <h1 class="text-xl font-bold flex items-center gap-2">📐 專業現勘回傳系統</h1>
+            <p class="text-[10px] opacity-70 mt-1">欄位修正版 | 3000x2000 | 裝置偵測</p>
         </div>
 
         <form id="surveyForm" class="p-6 space-y-4">
-            <div class="bg-green-50 p-2 rounded-lg border border-blue-100 text-[10px] text-blue-600 font-mono">
-                <span id="deviceInfo">偵測裝置中...</span>
-            </div>
-
+            <div id="deviceInfo" class="text-[10px] text-blue-500 font-mono italic">Device info loading...</div>
+            
             <div>
-                <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Auth Code</label>
-                <input type="password" id="authCode" placeholder="請輸入授權代碼" required class="w-full border rounded-xl p-3 text-sm focus:ring-red-500 border-slate-300">
+                <label class="block text-xs font-bold text-slate-500 mb-1">現勘授權碼</label>
+                <input type="password" id="authCode" value="SWC115" required class="w-full border rounded-xl p-3 text-sm border-slate-300">
             </div>
 
             <div>
                 <label class="block text-sm font-bold text-slate-700 mb-2">上傳現勘照片</label>
-                <input type="file" id="photoInput" accept="image/*" required 
-                       class="block w-full text-xs text-slate-500 file:mr-4 file:py-3 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700 cursor-pointer">
+                <input type="file" id="photoInput" accept="image/*" required class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-green-600 file:text-white">
             </div>
 
-            <div id="gpsBox" class="bg-slate-800 text-green-400 p-4 rounded-xl font-mono text-[11px] leading-relaxed shadow-inner">
-                <div id="gpsStatus">請拍攝照片或選取相片...</div>
+            <div id="gpsBox" class="bg-slate-800 text-green-400 p-4 rounded-xl font-mono text-[11px] leading-relaxed">
+                <div id="gpsStatus">請先選取照片...</div>
                 <input type="hidden" id="lat"><input type="hidden" id="lon">
             </div>
 
             <div>
-                <label class="block text-xs font-bold text-slate-500 mb-1">道路路名或地址 (自動解析)</label>
-                <input type="text" id="roadName" placeholder="待解析座標..." class="w-full border rounded-xl p-3 text-sm border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none">
+                <label class="block text-xs font-bold text-slate-500 mb-1">道路路名 (自動解析後可微調)</label>
+                <input type="text" id="roadName" placeholder="待解析地址..." class="w-full border rounded-xl p-3 text-sm border-slate-300">
             </div>
 
             <div>
-                <label class="block text-sm font-bold text-slate-700 mb-2">災情摘要/備註</label>
-                <textarea id="note" rows="2" class="w-full border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="若無請留空..."></textarea>
+                <label class="block text-sm font-bold text-slate-700 mb-2">災情摘要</label>
+                <textarea id="note" rows="2" class="w-full border-slate-300 rounded-xl p-3 text-sm" placeholder="若無請留空"></textarea>
             </div>
 
-            <button type="submit" id="submitBtn" disabled class="w-full bg-slate-400 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95">
-                讀取資料中...
-            </button>
+            <button type="submit" id="submitBtn" disabled class="w-full bg-slate-400 text-white font-bold py-4 rounded-xl">讀取資料中...</button>
         </form>
     </div>
 
-    <div id="loader" class="hidden fixed inset-0 bg-slate-900/80 items-center justify-center text-white flex-col space-y-4 z-50 backdrop-blur-md">
-        <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
-        <p class="font-bold tracking-widest text-lg">高解析影像處理中 (3:2)</p>
+    <div id="loader" class="hidden fixed inset-0 bg-slate-900/80 items-center justify-center text-white flex-col z-50">
+        <div class="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div>
+        <p class="mt-4 font-bold">高解析影像處理中...</p>
     </div>
 
     <canvas id="processCanvas" style="display:none;"></canvas>
 
     <script>
-        // GAS Web App URL
         const GAS_URL = "https://script.google.com/macros/s/AKfycbycY4N4LQ-W56a_w-kzxEKHvkDQwtKJ_ETOMxOOpFhqI_TQ4-zzwqvRA1NYReqSzfUo/exec"; 
-
         const gpsStatus = document.getElementById('gpsStatus');
         const roadNameInput = document.getElementById('roadName');
         const submitBtn = document.getElementById('submitBtn');
         const loader = document.getElementById('loader');
-        const deviceInfoEl = document.getElementById('deviceInfo');
 
-        // 1. 初始化：擷取裝置名稱 (UserAgent)
-        const userAgent = navigator.userAgent;
-        let deviceName = "Unknown Device";
-        if (userAgent.match(/iPhone/i)) deviceName = "iPhone";
-        else if (userAgent.match(/Android/i)) deviceName = "Android Device";
-        else if (userAgent.match(/Windows/i)) deviceName = "PC / Windows";
-        else if (userAgent.match(/Macintosh/i)) deviceName = "MacBook";
-        deviceInfoEl.innerText = "Device: " + deviceName;
+        // 裝置偵測
+        const device = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? (navigator.userAgent.match(/iPhone|iPad|Android/i)[0]) : "PC/Browser";
+        document.getElementById('deviceInfo').innerText = "上傳裝置: " + device;
 
-        // 2. 照片選取邏輯
         document.getElementById('photoInput').onchange = function(e) {
             const file = e.target.files[0];
             if (!file) return;
-
-            submitBtn.disabled = true;
-            gpsStatus.innerText = "> 掃描相片 EXIF 數據...";
-
+            gpsStatus.innerText = "> 讀取 EXIF...";
             EXIF.getData(file, function() {
-                let lat = EXIF.getTag(this, "GPSLatitude");
-                let lon = EXIF.getTag(this, "GPSLongitude");
-                let latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
-                let lonRef = EXIF.getTag(this, "GPSLongitudeRef") || "E";
-
+                let lat = EXIF.getTag(this, "GPSLatitude"), lon = EXIF.getTag(this, "GPSLongitude");
                 if (lat && lon) {
-                    const formatCoord = (c, ref) => {
-                        let res = c[0] + c[1]/60 + c[2]/3600;
-                        return (ref === "S" || ref === "W") ? res * -1 : res;
-                    };
-                    updateCoords(formatCoord(lat, latRef), formatCoord(lon, lonRef), "📸 使用照片拍攝座標");
+                    const fmt = (c, r) => (c[0] + c[1]/60 + c[2]/3600) * (r === "S" || r === "W" ? -1 : 1);
+                    updateCoords(fmt(lat, EXIF.getTag(this, "GPSLatitudeRef")), fmt(lon, EXIF.getTag(this, "GPSLongitudeRef")), "📸 使用照片拍攝坐標");
                 } else {
-                    gpsStatus.innerText = "> 相片無座標，正在嘗試即時定位...";
-                    navigator.geolocation.getCurrentPosition(
-                        (p) => updateCoords(p.coords.latitude, p.coords.longitude, "📍 使用設備即時定位"),
-                        (err) => { gpsStatus.innerText = "> ❌ 無法取得座標，請手動填寫"; roadNameInput.placeholder="定位失敗"; submitBtn.disabled=false; },
-                        { enableHighAccuracy: true }
-                    );
+                    navigator.geolocation.getCurrentPosition((p) => updateCoords(p.coords.latitude, p.coords.longitude, "📍 使用設備即時定位"), 
+                    () => { gpsStatus.innerText = "❌ 無法定位"; submitBtn.disabled=false; }, {enableHighAccuracy:true});
                 }
             });
         };
 
-        // 3. 前端觸發地址服務連動
-        async function updateCoords(lat, lon, source) {
-            document.getElementById('lat').value = lat;
-            document.getElementById('lon').value = lon;
-            gpsStatus.innerHTML = `${source}<br>WGS84: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
-            
-            // 前端解析提示
-            roadNameInput.value = "🔍 地址自動解析中...";
+        async function updateCoords(lat, lon, src) {
+            document.getElementById('lat').value = lat; document.getElementById('lon').value = lon;
+            gpsStatus.innerHTML = `${src}<br>WGS84: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+            roadNameInput.value = "地址解析中...";
             try {
                 const res = await fetch(`${GAS_URL}?lat=${lat}&lon=${lon}`);
-                const data = await res.json();
-                roadNameInput.value = (data.address === "無法解析地址") ? "" : data.address;
-            } catch (e) {
-                roadNameInput.value = ""; 
-            }
-
-            submitBtn.disabled = false;
-            submitBtn.innerText = "確認並上傳紀錄";
-            submitBtn.className = "w-full bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg";
+                const d = await res.json();
+                roadNameInput.value = (d.address === "無法解析地址") ? "" : d.address;
+            } catch(e) { roadNameInput.value = ""; }
+            submitBtn.disabled = false; submitBtn.innerText = "確認並傳送";
+            submitBtn.className = "w-full bg-green-700 text-white font-bold py-4 rounded-xl";
         }
 
-        // 4. 影像處理 (3000x2000 + 48px 紅色日期)
         async function processImage(file) {
-            return new Promise((resolve) => {
+            return new Promise(r => {
                 const img = new Image();
                 img.onload = () => {
-                    const canvas = document.getElementById('processCanvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = 3000; canvas.height = 2000;
-                    const ratio = 1.5;
-                    let w = img.width, h = img.height;
-                    let sx = 0, sy = 0;
-                    if (w/h > ratio) { w = h * ratio; sx = (img.width - w)/2; }
-                    else { h = w / ratio; sy = (img.height - h)/2; }
+                    const cvs = document.getElementById('processCanvas');
+                    const ctx = cvs.getContext('2d');
+                    cvs.width = 3000; cvs.height = 2000;
+                    const rat = 1.5; let w = img.width, h = img.height, sx = 0, sy = 0;
+                    if (w/h > rat) { w = h * rat; sx = (img.width - w)/2; } else { h = w / rat; sy = (img.height - h)/2; }
                     ctx.drawImage(img, sx, sy, w, h, 0, 0, 3000, 2000);
                     const d = new Date();
-                    const dateStr = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
-                    ctx.font = "bold 120px Arial"; ctx.fillStyle = "red"; ctx.textAlign = "right";
-                    ctx.fillText(dateStr, 2960, 1960);
-                    resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+                    const ds = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+                    ctx.font = "bold 160px Arial"; ctx.fillStyle = "red"; ctx.textAlign = "right";
+                    ctx.fillText(ds, 2960, 1960);
+                    r(cvs.toDataURL('image/jpeg', 0.8).split(',')[1]);
                 };
                 img.src = URL.createObjectURL(file);
             });
@@ -157,25 +116,23 @@
         document.getElementById('surveyForm').onsubmit = async (e) => {
             e.preventDefault();
             loader.classList.replace('hidden', 'flex');
-            submitBtn.disabled = true;
-
-            const photoFile = document.getElementById('photoInput').files[0];
-            const base64 = await processImage(photoFile);
-
+            const b64 = await processImage(document.getElementById('photoInput').files[0]);
+            
+            // ✨ 這裡確保傳送的 Key 與 GAS 對應
             const payload = {
                 auth_code: document.getElementById('authCode').value,
-                device: deviceName, // ✨ 增加裝置名稱
-                latitude: document.getElementById('lat').value || "None",
-                longitude: document.getElementById('lon').value || "None",
+                device: device,
+                latitude: document.getElementById('lat').value,
+                longitude: document.getElementById('lon').value,
                 road_name: roadNameInput.value,
                 note: document.getElementById('note').value,
-                photo_base64: base64
+                photo_base64: b64
             };
 
             const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
             const result = await res.json();
-            if (result.status === "success") { alert("✅ 紀錄成功"); window.location.reload(); }
-            else { alert("❌ 錯誤: " + result.message); loader.classList.replace('flex', 'hidden'); submitBtn.disabled = false; }
+            if (result.status === "success") { alert("✅ 上傳成功"); window.location.reload(); }
+            else { alert("❌ " + result.message); loader.classList.replace('flex', 'hidden'); }
         };
     </script>
 </body>
