@@ -146,7 +146,7 @@
                     ctx.drawImage(img, sx, sy, w, h, 0, 0, 3000, 2000);
                     const d = new Date();
                     const dateStr = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
-                    ctx.font = "bold 80px Arial"; ctx.fillStyle = "red"; ctx.textAlign = "right";
+                    ctx.font = "bold 120px Arial"; ctx.fillStyle = "red"; ctx.textAlign = "right";
                     ctx.fillText(dateStr, 2960, 1960);
                     resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
                 };
