@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
 </head>
-<body class="bg-slate-50 p-4">
+<body class="bg-slate-50 min-h-screen flex flex-col items-center p-4">
     <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
         <div class="bg-red-700 text-white p-5">
             <h1 class="text-lg font-bold">🛠️ 現勘回傳</h1>
@@ -47,7 +47,7 @@
     <canvas id="processCanvas" style="display:none;"></canvas>
 
     <script>
-        const GAS_URL = "AKfycbycY4N4LQ-W56a_w-kzxEKHvkDQwtKJ_ETOMxOOpFhqI_TQ4-zzwqvRA1NYReqSzfUo";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbycY4N4LQ-W56a_w-kzxEKHvkDQwtKJ_ETOMxOOpFhqI_TQ4-zzwqvRA1NYReqSzfUo/exec";
         const gpsStatus = document.getElementById('gpsStatus');
         const submitBtn = document.getElementById('submitBtn');
 
