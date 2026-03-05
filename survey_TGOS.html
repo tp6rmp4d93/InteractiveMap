@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>現勘系統 Pro (TGOS 國家圖資版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
+    
+    <script src="https://api.tgos.tw/TGOS_API/tgos?ver=2&AppID=UbkB8G/iAlzf328GoTdFxvLefmTMXjP94tzYNvVBsnPLymfiHeUHjA==&APIKey=cGEErDNy5yNTw4lb4fzGu/McHxMCS5EcI3VFEGSXkxxrEZVs5W9FhFL4UZVwQEOVBc2oTwBtgMhTqgD04AXkdluYL1HQNoPe1HX5btnLfUCu4mjREjH0VBIC585WdxjD6NsBm+IDKM09pReqLAXKO04udtjUCLTpbwDaK+4jVhT1jpesd0XhBGCqYTd4UseQ1FR7Q1Rm9SHVw+/mVSyZg+2OB1xOHk4ji+O9MTQrvHufD7rKDRU7+i2ZC57Ssh4nOzDuGhvOoBU8xe1u968F42SckuI1mS0n1Bl+z6+XUcysnZMZn+vmDlNcREo2Yl9li8l+P4ej8G0dEIA6MPJP7CMI8R6LMoSQ" charset="utf-8"></script>
+</head>
+<body class="bg-slate-100 min-h-screen p-4 flex flex-col items-center">
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+        <div class="bg-blue-900 text-white p-6">
+            <h1 class="text-xl font-bold flex items-center gap-2">🇹🇼 TGOS 現勘回傳系統</h1>
+            <p class="text-[10px] opacity-70 mt-1">T-GOS | 自動 TWD97 | 門牌精準定位</p>
+        </div>
+
+        <form id="surveyForm" class="p-6 space-y-4">
+            <div id="deviceInfo" class="text-[10px] text-blue-500 font-mono italic">Device info loading...</div>
+            
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">現勘授權碼</label>
+                <input type="password" id="authCode" value="SWC115" required class="w-full border rounded-xl p-3 text-sm border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div id="gpsBox" class="bg-slate-800 text-green-400 p-4 rounded-xl font-mono text-[11px] leading-relaxed transition-all">
+                <div id="gpsStatus">📍 正在獲取設備目前定位...</div>
+                <input type="hidden" id="lat"><input type="hidden" id="lon">
+                <input type="hidden" id="twd97x"><input type="hidden" id="twd97y">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">道路路名/TGOS 門牌地址</label>
+                <div class="flex gap-2">
+                    <input type="text" id="roadName" placeholder="等待定位與解析..." class="w-full border rounded-xl p-3 text-sm border-slate-300 text-blue-800 font-semibold bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button type="button" id="refreshLocationBtn" class="bg-blue-600 text-white px-4 rounded-xl text-sm font-bold shadow hover:bg-blue-700 active:scale-95 transition-all flex-shrink-0 flex items-center justify-center">
+                        更新定位
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2 mt-4">上傳現勘照片 (若含 EXIF 將覆蓋上述位置)</label>
+                <input type="file" id="photoInput" accept="image/*" required class="block w-full text-xs text-slate-500 file:mr-4 file:py-3 file:px-4 file:rounded-full file:border-0 file:bg-blue-600 file:text-white file:font-bold hover:file:bg-blue-700 cursor-pointer">
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">災情摘要</label>
+                <textarea id="note" rows="2" class="w-full border-slate-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="若無請留空，系統將自動填寫 Null"></textarea>
+            </div>
+
+            <button type="submit" id="submitBtn" disabled class="w-full bg-slate-400 text-white font-bold py-4 rounded-xl">等待 TGOS 圖資載入...</button>
+        </form>
+    </div>
+
+    <div id="loader" class="hidden fixed inset-0 bg-slate-900/80 items-center justify-center text-white flex-col z-50">
+        <div class="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div>
+        <p class="mt-4 font-bold">影像處理與上傳中...</p>
+    </div>
+
+    <canvas id="processCanvas" style="display:none;"></canvas>
+
+    <script>
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbycY4N4LQ-W56a_w-kzxEKHvkDQwtKJ_ETOMxOOpFhqI_TQ4-zzwqvRA1NYReqSzfUo/exec"; 
+        const gpsStatus = document.getElementById('gpsStatus');
+        const roadNameInput = document.getElementById('roadName');
+        const submitBtn = document.getElementById('submitBtn');
+        const loader = document.getElementById('loader');
+        const refreshBtn = document.getElementById('refreshLocationBtn');
+
+        const deviceName = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? (navigator.userAgent.match(/iPhone|iPad|Android/i)[0]) : "PC/Browser";
+        document.getElementById('deviceInfo').innerText = "上傳裝置: " + deviceName;
+
+        // 🟢 TGOS 核心解析邏輯 (WGS84 -> TWD97 -> 地址)
+        function updateCoordsAndAddress(lat, lon, sourceMsg, isSuccess = true) {
+            document.getElementById('lat').value = lat; 
+            document.getElementById('lon').value = lon;
+            
+            if (isSuccess) {
+                if (typeof TGOS === 'undefined') {
+                    gpsStatus.innerHTML = "❌ 尚未載入 TGOS API，請確認金鑰設定";
+                    return;
+                }
+
+                try {
+                    // 1. 呼叫 TGOS API 進行 TWD97 轉換 (lon 為 X, lat 為 Y)
+                    let TT = new TGOS.TGTransformation();
+                    TT.wgs84totwd97(lon, lat);
+                    let twd97X = TT.transResult.x;
+                    let twd97Y = TT.transResult.y;
+
+                    document.getElementById('twd97x').value = twd97X.toFixed(3);
+                    document.getElementById('twd97y').value = twd97Y.toFixed(3);
+
+                    gpsStatus.innerHTML = `${sourceMsg}<br>WGS84: ${lat.toFixed(6)}, ${lon.toFixed(6)}<br>TWD97: <span class="text-blue-300">${twd97X.toFixed(2)}, ${twd97Y.toFixed(2)}</span>`;
+                    gpsStatus.className = "bg-slate-800 text-green-400 p-4 rounded-xl font-mono text-[11px] leading-relaxed";
+
+                    // 2. 呼叫 TGOS API 進行逆向門牌地址解析
+                    roadNameInput.value = "";
+                    roadNameInput.placeholder = "🔍 呼叫 TGOS 圖資解析中...";
+                    
+                    let addrpt = new TGOS.TGPoint(twd97X, twd97Y);
+                    let addrlocate = new TGOS.TGAddress();
+                    
+                    // 以 EPSG3826 (TWD97) 查詢最鄰近地址
+                    addrlocate.nearestAddress(addrpt, TGOS.TGCoordSys.EPSG3826, function(result, status) {
+                        if (result && result.formattedAddress) {
+                            roadNameInput.value = result.formattedAddress;
+                        } else {
+                            roadNameInput.placeholder = "TGOS 無法解析此坐標，請手動輸入";
+                        }
+                        
+                        submitBtn.disabled = false; 
+                        submitBtn.innerText = "確認並傳送紀錄";
+                        submitBtn.className = "w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-4 rounded-xl shadow-lg transition-all";
+                    });
+
+                } catch (e) {
+                    console.error("TGOS API 錯誤:", e);
+                    roadNameInput.placeholder = "TGOS 服務異常，請確認金鑰或網路";
+                    submitBtn.disabled = false;
+                }
+            } else {
+                gpsStatus.innerHTML = sourceMsg;
+                gpsStatus.className = "bg-slate-800 text-red-400 p-4 rounded-xl font-mono text-[11px] leading-relaxed";
+                roadNameInput.placeholder = "無坐標，請手動輸入地址";
+            }
+        }
+
+        // 手動更新定位按鈕
+        refreshBtn.addEventListener('click', () => {
+            refreshBtn.innerText = "定位中..."; refreshBtn.disabled = true; refreshBtn.classList.replace('bg-blue-600', 'bg-slate-400');
+            navigator.geolocation.getCurrentPosition(
+                (p) => { updateCoordsAndAddress(p.coords.latitude, p.coords.longitude, "📍 [手動刷新] 設備最新定位"); resetRefreshBtn(); }, 
+                () => { alert("❌ 無法獲取設備定位。"); resetRefreshBtn(); }, 
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+            );
+        });
+        function resetRefreshBtn() { refreshBtn.innerText = "更新定位"; refreshBtn.disabled = false; refreshBtn.classList.replace('bg-slate-400', 'bg-blue-600'); }
+
+        window.onload = () => {
+            navigator.geolocation.getCurrentPosition(
+                (p) => updateCoordsAndAddress(p.coords.latitude, p.coords.longitude, "📍 [目前位置] 設備即時定位"), 
+                () => updateCoordsAndAddress(0, 0, "❌ 無法獲取設備定位，請稍後更新定位或使用照片坐標", false), 
+                { enableHighAccuracy: true }
+            );
+        };
+
+        document.getElementById('photoInput').onchange = function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const oldText = gpsStatus.innerHTML;
+            gpsStatus.innerHTML = "⏳ 正在掃描相片 EXIF 數據...";
+            submitBtn.disabled = true;
+            EXIF.getData(file, function() {
+                let lat = EXIF.getTag(this, "GPSLatitude"), lon = EXIF.getTag(this, "GPSLongitude");
+                if (lat && lon) {
+                    const fmt = (c, r) => (c[0] + c[1]/60 + c[2]/3600) * (r === "S" || r === "W" ? -1 : 1);
+                    updateCoordsAndAddress(fmt(lat, EXIF.getTag(this, "GPSLatitudeRef")), fmt(lon, EXIF.getTag(this, "GPSLongitudeRef")), "📸 [照片位置] 已更新為相片拍攝坐標");
+                } else {
+                    gpsStatus.innerHTML = "⚠️ 相片無坐標，維持使用上述設備定位。<br>" + oldText;
+                    submitBtn.disabled = false;
+                }
+            });
+        };
+
+        async function processImage(file) {
+            return new Promise(r => {
+                const img = new Image();
+                img.onload = () => {
+                    const cvs = document.getElementById('processCanvas'); const ctx = cvs.getContext('2d');
+                    cvs.width = 3000; cvs.height = 2000; const rat = 1.5; let w = img.width, h = img.height, sx = 0, sy = 0;
+                    if (w/h > rat) { w = h * rat; sx = (img.width - w)/2; } else { h = w / rat; sy = (img.height - h)/2; }
+                    ctx.drawImage(img, sx, sy, w, h, 0, 0, 3000, 2000);
+                    const d = new Date(); const ds = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+                    ctx.font = "bold 120px Arial"; ctx.fillStyle = "red"; ctx.textAlign = "right"; ctx.fillText(ds, 2960, 1960);
+                    r(cvs.toDataURL('image/jpeg', 0.8).split(',')[1]);
+                }; img.src = URL.createObjectURL(file);
+            });
+        }
+
+        document.getElementById('surveyForm').onsubmit = async (e) => {
+            e.preventDefault();
+            loader.classList.replace('hidden', 'flex'); submitBtn.disabled = true;
+            const b64 = await processImage(document.getElementById('photoInput').files[0]);
+            
+            const payload = {
+                auth_code: document.getElementById('authCode').value,
+                device: deviceName,
+                // 🟢 直接傳送 TGOS 轉換好的 TWD97 坐標給後端
+                twd97_x: document.getElementById('twd97x').value,
+                twd97_y: document.getElementById('twd97y').value,
+                road_name: document.getElementById('roadName').value,
+                note: document.getElementById('note').value,
+                photo_base64: b64
+            };
+
+            try {
+                const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
+                const result = await res.json();
+                if (result.status === "success") { alert("✅ 紀錄成功寫入試算表！"); window.location.reload(); }
+                else { alert("❌ 儲存失敗: " + result.message); loader.classList.replace('flex', 'hidden'); submitBtn.disabled = false; }
+            } catch (err) { alert("❌ 網路連線錯誤，請重試。"); loader.classList.replace('flex', 'hidden'); submitBtn.disabled = false; }
+        };
+    </script>
+</body>
+</html>
