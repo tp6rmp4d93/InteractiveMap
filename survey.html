@@ -9,9 +9,9 @@
 </head>
 <body class="bg-slate-100 min-h-screen p-4 flex flex-col items-center">
     <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
-        <div class="bg-blue-900 text-white p-6">
+        <div class="bg-green-900 text-white p-6">
             <h1 class="text-xl font-bold flex items-center gap-2">🌍 現勘回傳系統 (Google 版)</h1>
-            <p class="text-[10px] opacity-70 mt-1">本地 TWD97 轉換 | Google Geocoding | 3000x2000</p>
+            <p class="text-[10px] opacity-70 mt-1">TWD97 轉換 | Google Geocoding | 3:2+浮水印</p>
         </div>
 
         <form id="surveyForm" class="p-6 space-y-4">
@@ -31,8 +31,8 @@
             <div>
                 <label class="block text-xs font-bold text-slate-500 mb-1">道路路名/地址 (Google Maps 解析)</label>
                 <div class="flex gap-2">
-                    <input type="text" id="roadName" placeholder="等待定位與解析..." class="w-full border rounded-xl p-3 text-sm border-slate-300 text-blue-800 font-semibold bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <button type="button" id="refreshLocationBtn" class="bg-blue-600 text-white px-4 rounded-xl text-sm font-bold shadow hover:bg-blue-700 active:scale-95 transition-all flex-shrink-0 flex items-center justify-center">
+                    <input type="text" id="roadName" placeholder="等待定位與解析..." class="w-full border rounded-xl p-3 text-sm border-slate-300 text-blue-800 font-semibold bg-green-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button type="button" id="refreshLocationBtn" class="bg-green-600 text-white px-4 rounded-xl text-sm font-bold shadow hover:bg-green-700 active:scale-95 transition-all flex-shrink-0 flex items-center justify-center">
                         更新定位
                     </button>
                 </div>
@@ -40,7 +40,7 @@
 
             <div>
                 <label class="block text-sm font-bold text-slate-700 mb-2 mt-4">上傳現勘照片 (若含 EXIF 將覆蓋上述位置)</label>
-                <input type="file" id="photoInput" accept="image/*" required class="block w-full text-xs text-slate-500 file:mr-4 file:py-3 file:px-4 file:rounded-full file:border-0 file:bg-blue-600 file:text-white file:font-bold hover:file:bg-blue-700 cursor-pointer">
+                <input type="file" id="photoInput" accept="image/*" required class="block w-full text-xs text-slate-500 file:mr-4 file:py-3 file:px-4 file:rounded-full file:border-0 file:bg-green-600 file:text-white file:font-bold hover:file:bg-green-700 cursor-pointer">
             </div>
 
             <div>
@@ -120,7 +120,7 @@
                 
                 submitBtn.disabled = false; 
                 submitBtn.innerText = "確認並傳送紀錄";
-                submitBtn.className = "w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-4 rounded-xl shadow-lg transition-all";
+                submitBtn.className = "w-full bg-green-700 hover:bg-green-800 text-white font-bold py-4 rounded-xl shadow-lg transition-all";
             } else {
                 gpsStatus.innerHTML = sourceMsg;
                 gpsStatus.className = "bg-slate-800 text-red-400 p-4 rounded-xl font-mono text-[11px] leading-relaxed";
@@ -130,14 +130,14 @@
 
         // 手動更新定位按鈕
         refreshBtn.addEventListener('click', () => {
-            refreshBtn.innerText = "定位中..."; refreshBtn.disabled = true; refreshBtn.classList.replace('bg-blue-600', 'bg-slate-400');
+            refreshBtn.innerText = "定位中..."; refreshBtn.disabled = true; refreshBtn.classList.replace('bg-green-600', 'bg-slate-400');
             navigator.geolocation.getCurrentPosition(
                 (p) => { updateCoordsAndAddress(p.coords.latitude, p.coords.longitude, "📍 [手動刷新] 設備最新定位"); resetRefreshBtn(); }, 
                 () => { alert("❌ 無法獲取設備定位。"); resetRefreshBtn(); }, 
                 { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
             );
         });
-        function resetRefreshBtn() { refreshBtn.innerText = "更新定位"; refreshBtn.disabled = false; refreshBtn.classList.replace('bg-slate-400', 'bg-blue-600'); }
+        function resetRefreshBtn() { refreshBtn.innerText = "更新定位"; refreshBtn.disabled = false; refreshBtn.classList.replace('bg-slate-400', 'bg-green-600'); }
 
         // 載入時定位
         window.onload = () => {
