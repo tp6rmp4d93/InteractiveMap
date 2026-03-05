@@ -16,27 +16,37 @@
             <p class="text-[10px] opacity-70 mt-1">TWD97 轉換 | Google Geocoding | 3:2+浮水印 | AI 影像分析 | 即時地圖確認</p>
         </div>
 
-        <div id="map" class="w-full h-52 bg-slate-200 border-b border-slate-300"></div>
+        <div class="relative">
+            <div id="map" class="w-full h-52 bg-slate-200 border-b border-slate-300"></div>
+            <div class="absolute bottom-2 right-2 bg-white/80 px-2 py-1 rounded text-[10px] text-indigo-800 font-bold shadow pointer-events-none">
+                👆 點擊地圖可微調位置
+            </div>
+        </div>
 
         <form id="surveyForm" class="p-5 space-y-4">
             <div class="grid grid-cols-2 gap-3">
                 <div id="deviceInfo" class="text-[10px] text-indigo-500 font-mono italic flex items-center">Detecting...</div>
-                <input type="password" id="authCode" value="SWC114" required class="w-full border rounded-xl p-2 text-sm border-slate-300 bg-slate-50 text-center">
+                <input type="password" id="authCode" value="SWC114" required class="w-full border rounded-xl p-2 text-sm border-slate-300 bg-slate-50 text-center focus:ring-2 focus:ring-indigo-500 outline-none">
             </div>
             
-            <div id="gpsBox" class="bg-slate-800 text-green-400 p-3 rounded-xl font-mono text-[10px] leading-relaxed shadow-inner">
-                <div id="gpsStatus">📍 初始化定位中...</div>
-                <input type="hidden" id="lat"><input type="hidden" id="lon">
-                <input type="hidden" id="twd97x"><input type="hidden" id="twd97y">
+            <div class="flex gap-2">
+                <div id="gpsBox" class="flex-grow bg-slate-800 text-green-400 p-3 rounded-xl font-mono text-[10px] leading-relaxed shadow-inner">
+                    <div id="gpsStatus">📍 初始化定位中...</div>
+                    <input type="hidden" id="lat"><input type="hidden" id="lon">
+                    <input type="hidden" id="twd97x"><input type="hidden" id="twd97y">
+                </div>
+                <button type="button" id="refreshBtn" class="bg-indigo-600 text-white px-3 rounded-xl text-xs font-bold shadow hover:bg-indigo-700 transition-all flex-shrink-0 flex items-center justify-center">
+                    重新<br>定位
+                </button>
             </div>
 
             <div>
-                <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-tighter">道路路名 (自動解析)</label>
-                <input type="text" id="roadName" placeholder="等待定位..." class="w-full border rounded-xl p-3 text-sm border-slate-300 text-indigo-900 font-semibold bg-indigo-50 outline-none">
+                <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-tighter">道路路名/地址 (自動解析或手動修改)</label>
+                <input type="text" id="roadName" placeholder="等待定位..." class="w-full border rounded-xl p-3 text-sm border-slate-300 text-indigo-900 font-semibold bg-indigo-50 outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
 
             <div>
-                <label class="block text-sm font-bold text-slate-700 mb-2 font-bold">現勘照片 (AI 將自動填寫描述)</label>
+                <label class="block text-sm font-bold text-slate-700 mb-2 font-bold">現勘照片 (AI 將自動分析並填寫描述)</label>
                 <input type="file" id="photoInput" accept="image/*" required 
                        class="block w-full text-xs text-slate-500 file:mr-4 file:py-3 file:px-4 file:rounded-full file:border-0 file:bg-indigo-600 file:text-white file:font-bold hover:file:bg-indigo-700 cursor-pointer">
             </div>
@@ -44,9 +54,9 @@
             <div class="relative">
                 <label class="block text-sm font-bold text-slate-700 mb-1">摘要說明</label>
                 <textarea id="note" rows="3" class="w-full border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="請上傳照片，AI 將自動生成描述..."></textarea>
-                <div id="aiLoader" class="hidden absolute right-3 bottom-3 flex items-center space-x-1 text-indigo-600 text-[10px]">
+                <div id="aiLoader" class="hidden absolute right-3 bottom-3 flex items-center space-x-1 text-indigo-600 text-[10px] bg-white/90 px-2 py-1 rounded-md shadow-sm">
                     <span class="animate-bounce">🤖</span>
-                    <span>AI 分析中...</span>
+                    <span class="font-bold">AI 分析中...</span>
                 </div>
             </div>
 
@@ -58,13 +68,14 @@
 
     <div id="uploadLoader" class="hidden fixed inset-0 bg-slate-900/80 items-center justify-center text-white flex-col space-y-4 z-50 backdrop-blur-md">
         <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent"></div>
-        <p class="font-bold tracking-widest text-lg font-bold">正在將資料存入 Google Sheet...</p>
+        <p class="font-bold tracking-widest text-lg font-bold">正在將資料存入雲端...</p>
     </div>
 
     <canvas id="processCanvas" style="display:none;"></canvas>
 
     <script>
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbycY4N4LQ-W56a_w-kzxEKHvkDQwtKJ_ETOMxOOpFhqI_TQ4-zzwqvRA1NYReqSzfUo/exec"; // GAS 部署網址
+        // GAS 部署網址 (記得發布新版本)
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbycY4N4LQ-W56a_w-kzxEKHvkDQwtKJ_ETOMxOOpFhqI_TQ4-zzwqvRA1NYReqSzfUo/exec"; 
 
         const gpsStatus = document.getElementById('gpsStatus');
         const roadNameInput = document.getElementById('roadName');
@@ -72,24 +83,39 @@
         const submitBtn = document.getElementById('submitBtn');
         const aiLoader = document.getElementById('aiLoader');
         const uploadLoader = document.getElementById('uploadLoader');
+        const refreshBtn = document.getElementById('refreshBtn');
         
         let map, marker;
 
-        // 1. 初始化 Google Map
+        // 1. 初始化 Google Map (支援點擊與拖拉)
         function initMap(lat, lon) {
             const pos = { lat: parseFloat(lat), lng: parseFloat(lon) };
             if (!map) {
                 map = new google.maps.Map(document.getElementById("map"), {
-                    zoom: 17, center: pos, disableDefaultUI: true, mapTypeId: 'roadmap'
+                    zoom: 17, center: pos, disableDefaultUI: true, mapTypeId: 'roadmap', clickableIcons: false
                 });
-                marker = new google.maps.Marker({ position: pos, map: map, animation: google.maps.Animation.DROP });
+                marker = new google.maps.Marker({ 
+                    position: pos, map: map, animation: google.maps.Animation.DROP, draggable: true 
+                });
+
+                // 點擊地圖更新坐標
+                map.addListener("click", (mapsMouseEvent) => {
+                    const clickedPos = mapsMouseEvent.latLng;
+                    updateLocation(clickedPos.lat(), clickedPos.lng(), "📍 地圖手動點選定位");
+                });
+
+                // 拖曳圖釘更新坐標
+                marker.addListener("dragend", () => {
+                    const draggedPos = marker.getPosition();
+                    updateLocation(draggedPos.lat(), draggedPos.lng(), "📍 圖釘手動拖曳定位");
+                });
             } else {
                 map.setCenter(pos);
                 marker.setPosition(pos);
             }
         }
 
-        // 2. TWD97 轉換
+        // 2. TWD97 轉換 (本地運算)
         function convertWGS84toTWD97(lon, lat) {
             const a = 6378137.0, b = 6356752.314245, lon0 = 121 * Math.PI / 180, k0 = 0.9999, dx = 250000;
             const e = Math.sqrt(1 - Math.pow(b, 2) / Math.pow(a, 2)), e2 = Math.pow(e, 2) / (1 - Math.pow(e, 2));
@@ -101,7 +127,7 @@
             return { x: x.toFixed(3), y: y.toFixed(3) };
         }
 
-        // 3. 更新位置與地址
+        // 3. 核心：更新位置、UI 與地址
         async function updateLocation(lat, lon, sourceMsg) {
             document.getElementById('lat').value = lat;
             document.getElementById('lon').value = lon;
@@ -112,80 +138,103 @@
             document.getElementById('twd97y').value = twd97.y;
             gpsStatus.innerHTML = `${sourceMsg}<br>GPS: ${lat.toFixed(6)}, ${lon.toFixed(6)}<br>TWD97: ${twd97.x}, ${twd97.y}`;
             
+            // 請求 Google Geocoding (經由 GAS)
+            roadNameInput.value = "";
+            roadNameInput.placeholder = "🔍 正在解析地理位置...";
             try {
                 const res = await fetch(`${GAS_URL}?lat=${lat}&lon=${lon}`);
                 const data = await res.json();
-                roadNameInput.value = (data.address === "無法解析地址") ? "" : data.address;
-            } catch (e) { roadNameInput.placeholder = "請手動輸入地址"; }
+                roadNameInput.value = (data.address === "無法解析地址" || data.address.includes("錯誤")) ? "" : data.address;
+                if (!roadNameInput.value) roadNameInput.placeholder = "無法自動解析，請手動輸入";
+            } catch (e) { 
+                roadNameInput.placeholder = "解析逾時，請手動輸入"; 
+            }
             
             submitBtn.disabled = false;
             submitBtn.innerText = "確認並傳送數據";
-            submitBtn.className = "w-full bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg";
+            submitBtn.className = "w-full bg-indigo-700 hover:bg-indigo-800 text-white font-bold py-4 rounded-xl shadow-lg transition-all";
         }
 
-        // 4. 定位啟動
-        window.onload = () => {
+        // 4. 即時定位啟動
+        function getRealtimeLocation() {
+            gpsStatus.innerHTML = "📍 正在獲取設備定位...";
             navigator.geolocation.getCurrentPosition(
                 (p) => updateLocation(p.coords.latitude, p.coords.longitude, "📍 即時設備定位"),
-                (e) => { gpsStatus.innerText = "❌ GPS 定位失敗，請檢查權限"; },
-                { enableHighAccuracy: true }
+                (e) => { gpsStatus.innerHTML = "❌ GPS 定位失敗，請檢查權限或點擊地圖手動定位。"; submitBtn.disabled = false; submitBtn.innerText = "請先確認定位"; },
+                { enableHighAccuracy: true, maximumAge: 0 }
             );
-        };
+        }
+        
+        window.onload = getRealtimeLocation;
+        refreshBtn.onclick = getRealtimeLocation;
 
-        // 5. 照片選擇觸發：EXIF 定位與 AI 分析反饋
+        // 5. 照片選擇：EXIF 讀取 & AI 分析反饋
         document.getElementById('photoInput').onchange = async function(e) {
             const file = e.target.files[0];
             if (!file) return;
 
-            // --- A. 讀取 EXIF 坐標 ---
+            // A. 處理 EXIF
             EXIF.getData(file, function() {
                 let lat = EXIF.getTag(this, "GPSLatitude"), lon = EXIF.getTag(this, "GPSLongitude");
                 if (lat && lon) {
                     const fmt = (c, r) => (c[0] + c[1]/60 + c[2]/3600) * (r === "S" || r === "W" ? -1 : 1);
-                    updateLocation(fmt(lat, EXIF.getTag(this, "GPSLatitudeRef")), fmt(lon, EXIF.getTag(this, "GPSLongitudeRef")), "📸 使用相片原始坐標");
+                    updateLocation(fmt(lat, EXIF.getTag(this, "GPSLatitudeRef")), fmt(lon, EXIF.getTag(this, "GPSLongitudeRef")), "📸 已覆蓋為相片原始坐標");
                 }
             });
 
-            // --- B. 觸發 AI 分析反饋 ---
+            // B. 處理 AI 影像分析
             noteArea.value = ""; 
             noteArea.placeholder = "🤖 AI 正在分析影像內容，請稍候...";
             aiLoader.classList.remove('hidden');
+            submitBtn.disabled = true; // 分析時暫時鎖定送出按鈕
             
             try {
                 const b64 = await processImage(file);
+                // 傳送 analyze_only 請求給 GAS
                 const res = await fetch(GAS_URL, {
                     method: 'POST',
                     body: JSON.stringify({ action: "analyze_only", photo_base64: b64 })
                 });
                 const result = await res.json();
-                if (result.status === "success") {
+                
+                if (result.status === "success" && result.message) {
                     noteArea.value = result.message; // ✨ AI 結果回傳至文字方塊
+                } else {
+                    noteArea.placeholder = "AI 分析完成但無內容，請手動輸入。";
                 }
             } catch (err) {
-                noteArea.placeholder = "AI 分析暫時不可用，請手動描述。";
+                console.error("AI Fetch Error:", err);
+                noteArea.placeholder = "AI 分析服務暫時異常，請手動描述。";
             } finally {
                 aiLoader.classList.add('hidden');
+                submitBtn.disabled = false;
             }
         };
 
-        // 影像處理 (縮圖與日期戳)
+        // 影像縮放與壓印浮水印
         async function processImage(file) {
             return new Promise(r => {
                 const img = new Image();
                 img.onload = () => {
                     const cvs = document.getElementById('processCanvas'); const ctx = cvs.getContext('2d');
                     cvs.width = 3000; cvs.height = 2000;
-                    ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, 3000, 2000);
-                    const d = new Date();
+                    const rat = 1.5; let w = img.width, h = img.height, sx = 0, sy = 0;
+                    if (w/h > rat) { w = h * rat; sx = (img.width - w)/2; } else { h = w / rat; sy = (img.height - h)/2; }
+                    ctx.drawImage(img, sx, sy, w, h, 0, 0, 3000, 2000);
+                    
+                    // 紅色日期浮水印
+                    const d = new Date(); 
+                    const ds = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
                     ctx.font = "bold 120px Arial"; ctx.fillStyle = "red"; ctx.textAlign = "right";
-                    ctx.fillText(`${d.getFullYear()}-/${d.getMonth()+1}/${d.getDate()}`, 2950, 1950);
-                    r(cvs.toDataURL('image/jpeg', 0.8).split(',')[1]);
+                    ctx.fillText(ds, 2950, 1950);
+                    
+                    r(cvs.toDataURL('image/jpeg', 0.85).split(',')[1]);
                 };
                 img.src = URL.createObjectURL(file);
             });
         }
 
-        // 6. 表單提交 (不重跑 AI，直接傳送 Note)
+        // 6. 表單提交 (傳送所有資料包含人工確認後的 Note)
         document.getElementById('surveyForm').onsubmit = async (e) => {
             e.preventDefault();
             uploadLoader.classList.replace('hidden', 'flex');
@@ -194,13 +243,13 @@
             const b64 = await processImage(document.getElementById('photoInput').files[0]);
             const payload = {
                 auth_code: document.getElementById('authCode').value,
-                device: /Android|iPhone/i.test(navigator.userAgent) ? "Mobile" : "PC",
+                device: deviceName,
                 latitude: document.getElementById('lat').value,
                 longitude: document.getElementById('lon').value,
                 twd97_x: document.getElementById('twd97x').value,
                 twd97_y: document.getElementById('twd97y').value,
                 road_name: roadNameInput.value,
-                note: noteArea.value,
+                note: noteArea.value, // 送出文字方塊內的內容 (AI初稿 + 人工修改)
                 photo_base64: b64
             };
 
@@ -208,19 +257,23 @@
                 const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
                 const result = await res.json();
                 if (result.status === "success") {
-                    alert("✅ 成功！資料已寫入試算表。");
+                    alert("✅ 成功！資料與照片已寫入雲端。");
                     window.location.reload();
                 } else {
-                    alert("❌ 驗證失敗或系統錯誤");
+                    alert("❌ 錯誤: " + result.message);
                     uploadLoader.classList.replace('flex', 'hidden');
                     submitBtn.disabled = false;
                 }
             } catch (err) {
-                alert("❌ 連線失敗");
+                alert("❌ 連線失敗，請檢查網路狀態。");
                 uploadLoader.classList.replace('flex', 'hidden');
                 submitBtn.disabled = false;
             }
         };
+
+        // 裝置偵測
+        const deviceName = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? (navigator.userAgent.match(/iPhone|iPad|Android/i)[0]) : "PC/Browser";
+        document.getElementById('deviceInfo').innerText = "Device: " + deviceName;
     </script>
 </body>
 </html>
