@@ -136,7 +136,7 @@
             document.getElementById('twd97x').value = twd97.x;
             document.getElementById('twd97y').value = twd97.y;
             // ✨ 在淺色底板上使用深色文字
-            gpsStatus.innerHTML = `<span class="text-indigo-600 text-xs">${sourceMsg}</span><br>WGS: ${lat.toFixed(6)}, ${lon.toFixed(6)}<br>TWD: ${twd97.x}, ${twd97.y}`;
+            gpsStatus.innerHTML = `<span class="text-indigo-600 text-xs">${sourceMsg}</span><br>WGS84: ${lat.toFixed(6)}, ${lon.toFixed(6)}<br>TWD97: ${twd97.x}, ${twd97.y}`;
             
             roadNameInput.value = ""; roadNameInput.placeholder = "🔍 解析地址中...";
             try {
