@@ -143,7 +143,7 @@
                 const pos = { lat: centerLat, lng: centerLon };
                 if (!modalMap) {
                     modalMap = new google.maps.Map(document.getElementById("modalMap"), {
-                        zoom: zoomLevel, center: pos, mapTypeId: 'roadmap', disableDefaultUI: true, clickableIcons: false
+                        zoom: zoomLevel, center: pos, mapTypeId: 'hybrid', disableDefaultUI: true, clickableIcons: false
                     });
                     modalMarker = new google.maps.Marker({
                         position: pos, map: modalMap, animation: google.maps.Animation.DROP, draggable: true
