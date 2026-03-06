@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>現勘系統 Pro - 批次上傳中心</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen p-4 font-sans text-slate-800">
+
+    <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+        <div class="bg-indigo-900 text-white p-6 text-center">
+            <h1 class="text-2xl font-bold tracking-widest uppercase">Batch Upload Center</h1>
+            <p class="text-xs opacity-80 mt-2">EXIF 自動解析 | AI 批次辨識 | 背景自動上傳</p>
+        </div>
+
+        <div class="p-6 space-y-6">
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div class="w-full md:w-1/3">
+                    <label class="block text-xs font-bold text-slate-500 mb-1">現勘授權碼</label>
+                    <input type="password" id="authCode" value="SWC114" class="w-full border border-slate-300 rounded-lg p-2 text-sm text-center focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div class="w-full md:w-1/3">
+                    <label class="block text-xs font-bold text-slate-500 mb-1">選擇多張照片</label>
+                    <input type="file" id="batchPhotoInput" accept="image/*" multiple class="block w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200 cursor-pointer">
+                </div>
+                <div class="w-full md:w-1/3 flex items-end h-full">
+                    <button id="startBatchBtn" disabled class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg shadow hover:bg-indigo-700 disabled:bg-slate-300 transition-all">
+                        開始批次處理 (0)
+                    </button>
+                </div>
+            </div>
+
+            <div id="overallProgress" class="hidden">
+                <div class="flex justify-between text-xs font-bold text-slate-500 mb-1">
+                    <span>總進度</span>
+                    <span id="progressText">0 / 0</span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-2.5">
+                    <div id="progressBar" class="bg-indigo-600 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 text-xs text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                            <th class="p-3 w-16">預覽</th>
+                            <th class="p-3 w-32">拍攝時間</th>
+                            <th class="p-3 w-40">TWD97 坐標</th>
+                            <th class="p-3">AI 摘要與狀態</th>
+                            <th class="p-3 w-20 text-center">狀態</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queueList" class="text-sm divide-y divide-slate-100">
+                        <tr><td colspan="5" class="p-8 text-center text-slate-400 italic">尚未選擇照片</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="processCanvas" style="display:none;"></canvas>
+
+    <script>
+        // ⚠️  GAS 網址
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbycY4N4LQ-W56a_w-kzxEKHvkDQwtKJ_ETOMxOOpFhqI_TQ4-zzwqvRA1NYReqSzfUo/exec"; 
+        
+        const fileInput = document.getElementById('batchPhotoInput');
+        const startBtn = document.getElementById('startBatchBtn');
+        const queueList = document.getElementById('queueList');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const overallProgress = document.getElementById('overallProgress');
+
+        let uploadQueue = [];
+        let isProcessing = false;
+
+        // TWD97 轉換公式
+        function convertWGS84toTWD97(lon, lat) {
+            const a = 6378137.0, b = 6356752.314245, lon0 = 121 * Math.PI / 180, k0 = 0.9999, dx = 250000;
+            const e = Math.sqrt(1 - Math.pow(b, 2) / Math.pow(a, 2)), e2 = Math.pow(e, 2) / (1 - Math.pow(e, 2));
+            const lonRad = lon * Math.PI / 180, latRad = lat * Math.PI / 180;
+            const A = (lonRad - lon0) * Math.cos(latRad), T = Math.pow(Math.tan(latRad), 2), C = e2 * Math.pow(Math.cos(latRad), 2);
+            const M = a * ((1 - Math.pow(e, 2) / 4 - 3 * Math.pow(e, 4) / 64) * latRad - (3 * Math.pow(e, 2) / 8 + 3 * Math.pow(e, 4) / 32) * Math.sin(2 * latRad) + (15 * Math.pow(e, 4) / 256) * Math.sin(4 * latRad));
+            const x = k0 * a * (A + (1 - T + C) * Math.pow(A, 3) / 6 + (5 - 18 * T + Math.pow(T, 2) + 72 * C - 58 * e2) * Math.pow(A, 5) / 120) + dx;
+            const y = k0 * (M + a * Math.tan(latRad) * (Math.pow(A, 2) / 2 + (5 - T + 9 * C + 4 * Math.pow(C, 2)) * Math.pow(A, 4) / 24 + (61 - 58 * T + Math.pow(T, 2) + 600 * C - 330 * e2) * Math.pow(A, 6) / 720));
+            return { x: x.toFixed(3), y: y.toFixed(3) };
+        }
+
+        // 解析 EXIF Promise
+        function extractExifData(file) {
+            return new Promise(resolve => {
+                EXIF.getData(file, function() {
+                    let lat = EXIF.getTag(this, "GPSLatitude");
+                    let lon = EXIF.getTag(this, "GPSLongitude");
+                    let latRef = EXIF.getTag(this, "GPSLatitudeRef");
+                    let lonRef = EXIF.getTag(this, "GPSLongitudeRef");
+                    let dateObj = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
+                    resolve({ lat, lon, latRef, lonRef, dateObj });
+                });
+            });
+        }
+
+        // 選擇檔案後，建立佇列並預覽
+        fileInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            queueList.innerHTML = ""; // 清空表格
+            uploadQueue = [];
+            startBtn.disabled = true;
+            startBtn.innerText = "讀取相片資訊中...";
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const exif = await extractExifData(file);
+                
+                let lat = 0, lon = 0, twd97x = 0, twd97y = 0, formattedDate = "無拍攝日期";
+                
+                // 處理坐標
+                if (exif.lat && exif.lon) {
+                    const fmt = (c, r) => (c[0] + c[1]/60 + c[2]/3600) * (r === "S" || r === "W" ? -1 : 1);
+                    lat = fmt(exif.lat, exif.latRef);
+                    lon = fmt(exif.lon, exif.lonRef);
+                    const twd97 = convertWGS84toTWD97(lon, lat);
+                    twd97x = twd97.x;
+                    twd97y = twd97.y;
+                }
+
+                // 處理日期
+                if (exif.dateObj) {
+                    formattedDate = exif.dateObj.split(" ")[0].replace(/:/g, "/");
+                }
+
+                const previewUrl = URL.createObjectURL(file);
+                
+                // 存入佇列
+                const item = {
+                    id: i,
+                    file: file,
+                    lat: lat,
+                    lon: lon,
+                    twd97x: twd97x,
+                    twd97y: twd97y,
+                    date: formattedDate,
+                    address: "等待解析",
+                    aiNote: "等待 AI 分析",
+                    status: "ready" // ready, processing, done, error
+                };
+                uploadQueue.push(item);
+
+                // 渲染 UI
+                const tr = document.createElement('tr');
+                tr.id = `row-${i}`;
+                tr.innerHTML = `
+                    <td class="p-3"><img src="${previewUrl}" class="w-12 h-12 object-cover rounded-md shadow-sm"></td>
+                    <td class="p-3 font-mono text-xs text-slate-600">${formattedDate}</td>
+                    <td class="p-3 font-mono text-xs text-blue-600">${twd97x !== 0 ? `${twd97x}<br>${twd97y}` : '無坐標資訊'}</td>
+                    <td class="p-3 text-xs text-slate-500" id="note-${i}">等待處理...</td>
+                    <td class="p-3 text-center" id="status-${i}"><span class="bg-slate-200 text-slate-600 py-1 px-2 rounded text-[10px] font-bold">待機中</span></td>
+                `;
+                queueList.appendChild(tr);
+            }
+
+            startBtn.disabled = false;
+            startBtn.innerText = `開始批次處理 (${uploadQueue.length})`;
+        });
+
+        // 影像處理 (縮圖 + 真實日期浮水印)
+        async function processImage(file, watermarkDate) {
+            return new Promise(r => {
+                const img = new Image();
+                img.onload = () => {
+                    const cvs = document.getElementById('processCanvas'); const ctx = cvs.getContext('2d');
+                    cvs.width = 3000; cvs.height = 2000;
+                    const rat = 1.5; let w = img.width, h = img.height, sx = 0, sy = 0;
+                    if (w/h > rat) { w = h * rat; sx = (img.width - w)/2; } else { h = w / rat; sy = (img.height - h)/2; }
+                    ctx.drawImage(img, sx, sy, w, h, 0, 0, 3000, 2000);
+                    
+                    const displayDate = watermarkDate === "無拍攝日期" ? new Date().toLocaleDateString('zh-TW') : watermarkDate;
+                    ctx.font = "bold 48px Arial"; ctx.fillStyle = "red"; ctx.textAlign = "right";
+                    ctx.fillText(displayDate, 2950, 1950);
+                    
+                    r(cvs.toDataURL('image/jpeg', 0.85).split(',')[1]);
+                };
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        // 更新單列狀態 UI
+        function updateRowStatus(id, msg, state, noteText = null) {
+            const statusCell = document.getElementById(`status-${id}`);
+            const noteCell = document.getElementById(`note-${id}`);
+            
+            if (noteText) noteCell.innerText = noteText;
+
+            if (state === 'processing') {
+                statusCell.innerHTML = `<span class="bg-blue-100 text-blue-700 py-1 px-2 rounded text-[10px] font-bold animate-pulse">${msg}</span>`;
+            } else if (state === 'done') {
+                statusCell.innerHTML = `<span class="bg-green-100 text-green-700 py-1 px-2 rounded text-[10px] font-bold">✅ 成功</span>`;
+                noteCell.classList.add('text-green-700');
+            } else if (state === 'error') {
+                statusCell.innerHTML = `<span class="bg-red-100 text-red-700 py-1 px-2 rounded text-[10px] font-bold">❌ 失敗</span>`;
+                noteCell.innerHTML = `<span class="text-red-500">${msg}</span>`;
+            }
+        }
+
+        // 點擊開始批次處理
+        startBtn.addEventListener('click', async () => {
+            if (isProcessing || uploadQueue.length === 0) return;
+            
+            isProcessing = true;
+            startBtn.disabled = true;
+            fileInput.disabled = true;
+            overallProgress.classList.remove('hidden');
+            
+            const authCode = document.getElementById('authCode').value;
+            const deviceName = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? "Mobile Batch" : "PC Batch";
+            let successCount = 0;
+
+            // 採用「循序 (Sequential)」處理，避免塞爆 GAS 與 AI API 配額
+            for (let i = 0; i < uploadQueue.length; i++) {
+                const item = uploadQueue[i];
+                if (item.status === 'done') continue;
+
+                try {
+                    // 1. 解析地址
+                    if (item.lat !== 0) {
+                        updateRowStatus(i, "解析地址...", "processing", "正在向 Google 查詢路名...");
+                        const addrRes = await fetch(`${GAS_URL}?lat=${item.lat}&lon=${item.lon}`);
+                        const addrData = await addrRes.json();
+                        item.address = (addrData.address === "無法解析地址" || addrData.address.includes("錯誤")) ? "無地址資訊" : addrData.address;
+                    }
+
+                    // 2. 影像處理與浮水印
+                    updateRowStatus(i, "處理影像...", "processing", "高解析度壓縮與壓印浮水印...");
+                    const b64 = await processImage(item.file, item.date);
+
+                    // 3. AI 影像分析
+                    updateRowStatus(i, "AI 分析中...", "processing", "呼叫 Gemini 辨識災情...");
+                    const aiRes = await fetch(GAS_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: "analyze_only", photo_base64: b64 })
+                    });
+                    const aiData = await aiRes.json();
+                    item.aiNote = (aiData.status === "success") ? aiData.message : "AI 辨識失敗";
+
+                    // 4. 正式上傳儲存
+                    updateRowStatus(i, "上傳雲端...", "processing", `[地址]: ${item.address}\n[AI]: ${item.aiNote}`);
+                    const payload = {
+                        auth_code: authCode,
+                        device: deviceName,
+                        latitude: item.lat,
+                        longitude: item.lon,
+                        twd97_x: item.twd97x,
+                        twd97_y: item.twd97y,
+                        road_name: item.address,
+                        note: item.aiNote,
+                        exif_date: item.date,
+                        photo_base64: b64
+                    };
+
+                    const saveRes = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
+                    const saveData = await saveRes.json();
+
+                    if (saveData.status === "success") {
+                        item.status = "done";
+                        successCount++;
+                        updateRowStatus(i, "", "done", `[${item.address}] ${item.aiNote}`);
+                    } else {
+                        throw new Error(saveData.message);
+                    }
+
+                } catch (err) {
+                    item.status = "error";
+                    updateRowStatus(i, err.message || "連線或系統異常", "error");
+                }
+
+                // 更新總進度條
+                const percent = Math.round(((i + 1) / uploadQueue.length) * 100);
+                progressBar.style.width = `${percent}%`;
+                progressText.innerText = `${i + 1} / ${uploadQueue.length}`;
+            }
+
+            isProcessing = false;
+            fileInput.disabled = false;
+            startBtn.innerText = `處理完成 (${successCount}/${uploadQueue.length})`;
+            alert(`批次處理完畢！共成功上傳 ${successCount} 張照片。`);
+        });
+    </script>
+</body>
+</html>
