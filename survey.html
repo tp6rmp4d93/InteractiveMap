@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="現勘Pro">
+    <meta name="apple-mobile-web-app-title" content="現勘回傳 Pro - AI 反饋與地圖版">
     <meta name="theme-color" content="#1d9305">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/854/854878.png">
     
-    <title>現勘回傳 Pro - AI 反饋與地圖版</title>
+    <title>現勘回傳 Pro - AI 反饋、地圖、方位角版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB_m91mDE1HSFIj-s-iiCsS9RvmVWgSl3E"></script>
@@ -20,7 +20,7 @@
         
         <div class="bg-green-900 text-white py-2 px-4 text-center">
             <h1 class="text-base font-bold tracking-widest uppercase">現勘回傳系統 (Google AI 整合版)</h1>
-            <p class="text-[9px] opacity-70 mt-0.5">TWD97 轉換 | Google Geocoding | 3:2+浮水印 | AI 影像分析 | 即時地圖確認</p>
+            <p class="text-[9px] opacity-70 mt-0.5">TWD97轉換 | Google Geocoding | 日期浮水印 | AI 影像分析 | 即時地圖確認 | 方位角</p>
         </div>
 
         <div class="relative">
@@ -31,12 +31,18 @@
         </div>
 
         <form id="surveyForm" class="p-4 space-y-3">
+            <div class="grid grid-cols-2 gap-2 items-center">
+                <div id="deviceInfo" class="text-[9px] text-green-400 font-mono italic">Detecting...</div>
+                <input type="password" id="authCode" value="SWC114" required class="w-full border border-slate-200 rounded-lg p-1.5 text-xs bg-slate-50 text-center focus:ring-1 focus:ring-green-500 outline-none text-slate-500">
+            </div>
             
             <div class="flex gap-2">
-                <div id="gpsBox" class="flex-grow bg-blue-50 text-blue-900 border border-blue-100 p-3 rounded-xl font-mono text-sm font-bold leading-relaxed shadow-sm">
-                    <div id="gpsStatus">📍 初始化定位中...</div>
+                <div id="gpsBox" class="flex-grow bg-blue-50 text-blue-900 border border-blue-100 p-3 rounded-xl font-mono text-xs font-bold leading-relaxed shadow-sm">
+                    <div id="gpsStatus" class="text-green-600 mb-1">📍 初始化定位中...</div>
+                    <div id="coordDisplay" class="text-[11px] text-slate-700">等待載入坐標資訊...</div>
                     <input type="hidden" id="lat"><input type="hidden" id="lon">
                     <input type="hidden" id="twd97x"><input type="hidden" id="twd97y">
+                    <input type="hidden" id="azimuthValue">
                 </div>
                 <button type="button" id="refreshBtn" class="bg-green-600 text-white px-3 rounded-xl text-xs font-bold shadow hover:bg-green-700 transition-all flex-shrink-0 flex items-center justify-center active:scale-95">
                     重新<br>定位
@@ -49,24 +55,20 @@
             </div>
 
             <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1.5">現勘照片 (浮水印將採用真實拍攝日期)</label>
+                <label class="block text-xs font-bold text-slate-700 mb-1.5">現勘照片 (讀取時間與拍攝方位角)</label>
                 <input type="file" id="photoInput" accept="image/*" required 
                        class="block w-full text-xs text-slate-500 file:mr-3 file:py-2.5 file:px-4 file:rounded-full file:border-0 file:bg-green-600 file:text-white file:font-bold hover:file:bg-green-700 cursor-pointer">
             </div>
 
             <div class="relative">
-                <label class="block text-xs font-bold text-slate-700 mb-1.5">摘要說明</label>
+                <label class="block text-xs font-bold text-slate-700 mb-1.5">災情摘要說明</label>
                 <textarea id="note" rows="3" class="w-full border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-green-500 outline-none transition-all shadow-sm" placeholder="請上傳照片，AI 將自動生成描述..."></textarea>
                 <div id="aiLoader" class="hidden absolute right-3 bottom-3 flex items-center space-x-1 text-green-600 text-[10px] bg-white/90 px-2 py-1 rounded-md shadow-sm border border-green-100">
                     <span class="animate-bounce">🤖</span>
                     <span class="font-bold">AI 分析中...</span>
                 </div>
             </div>
-			
-            <div class="grid grid-cols-2 gap-2 items-center">
-                <div id="deviceInfo" class="text-[9px] text-green-400 font-mono italic">Detecting...</div>
-                <input type="password" id="authCode" value="SWC115" required class="w-full border border-slate-200 rounded-lg p-1.5 text-xs bg-slate-50 text-center focus:ring-1 focus:ring-green-500 outline-none text-slate-500">
-            </div>
+
             <button type="submit" id="submitBtn" disabled class="w-full bg-slate-400 text-white font-bold py-3.5 rounded-xl shadow-md transition-all active:scale-95 text-base mt-2">
                 讀取定位中...
             </button>
@@ -85,6 +87,7 @@
         const GAS_URL = "https://script.google.com/macros/s/AKfycbycY4N4LQ-W56a_w-kzxEKHvkDQwtKJ_ETOMxOOpFhqI_TQ4-zzwqvRA1NYReqSzfUo/exec"; 
 
         const gpsStatus = document.getElementById('gpsStatus');
+        const coordDisplay = document.getElementById('coordDisplay');
         const roadNameInput = document.getElementById('roadName');
         const noteArea = document.getElementById('note');
         const submitBtn = document.getElementById('submitBtn');
@@ -94,13 +97,13 @@
         
         let map, marker;
         let globalExifDate = null; 
+        let globalAzimuth = "無資訊"; // ✨ 全域方位角
 
-        // 1. 初始化 Google Map
         function initMap(lat, lon) {
             const pos = { lat: parseFloat(lat), lng: parseFloat(lon) };
             if (!map) {
                 map = new google.maps.Map(document.getElementById("map"), {
-                    zoom: 18, center: pos, disableDefaultUI: true, mapTypeId: 'roadmap', clickableIcons: false
+                    zoom: 17, center: pos, disableDefaultUI: true, mapTypeId: 'roadmap', clickableIcons: false
                 });
                 marker = new google.maps.Marker({ 
                     position: pos, map: map, animation: google.maps.Animation.DROP, draggable: true 
@@ -114,7 +117,6 @@
             }
         }
 
-        // 2. TWD97 轉換
         function convertWGS84toTWD97(lon, lat) {
             const a = 6378137.0, b = 6356752.314245, lon0 = 121 * Math.PI / 180, k0 = 0.9999, dx = 250000;
             const e = Math.sqrt(1 - Math.pow(b, 2) / Math.pow(a, 2)), e2 = Math.pow(e, 2) / (1 - Math.pow(e, 2));
@@ -126,7 +128,21 @@
             return { x: x.toFixed(3), y: y.toFixed(3) };
         }
 
-        // 3. 更新位置與地址
+        // ✨ 將度數轉換為方位中文
+        function getDirectionName(degree) {
+            if (degree === "無資訊") return "";
+            const val = parseFloat(degree);
+            if (val >= 337.5 || val < 22.5) return "北";
+            if (val >= 22.5 && val < 67.5) return "東北";
+            if (val >= 67.5 && val < 112.5) return "東";
+            if (val >= 112.5 && val < 157.5) return "東南";
+            if (val >= 157.5 && val < 202.5) return "南";
+            if (val >= 202.5 && val < 247.5) return "西南";
+            if (val >= 247.5 && val < 292.5) return "西";
+            if (val >= 292.5 && val < 337.5) return "西北";
+            return "";
+        }
+
         async function updateLocation(lat, lon, sourceMsg) {
             document.getElementById('lat').value = lat;
             document.getElementById('lon').value = lon;
@@ -135,8 +151,12 @@
             const twd97 = convertWGS84toTWD97(lon, lat);
             document.getElementById('twd97x').value = twd97.x;
             document.getElementById('twd97y').value = twd97.y;
-            // ✨ 在淺色底板上使用深色文字
-            gpsStatus.innerHTML = `<span class="text-green-600 text-xs">${sourceMsg}</span><br>WGS84: ${lat.toFixed(6)}, ${lon.toFixed(6)}<br>TWD97: ${twd97.x}, ${twd97.y}`;
+            
+            gpsStatus.innerHTML = sourceMsg;
+            
+            // ✨ 顯示坐標與方位角
+            let dirText = globalAzimuth !== "無資訊" ? ` | 方位: ${globalAzimuth}° (${getDirectionName(globalAzimuth)})` : "";
+            coordDisplay.innerHTML = `WGS: ${lat.toFixed(6)}, ${lon.toFixed(6)}${dirText}<br>TWD: ${twd97.x}, ${twd97.y}`;
             
             roadNameInput.value = ""; roadNameInput.placeholder = "🔍 解析地址中...";
             try {
@@ -151,9 +171,9 @@
             submitBtn.className = "w-full bg-green-700 hover:bg-green-800 text-white font-bold py-3.5 rounded-xl shadow-md transition-all text-base mt-2";
         }
 
-        // 4. 定位啟動
         function getRealtimeLocation() {
             gpsStatus.innerHTML = "📍 獲取設備定位中...";
+            globalAzimuth = "無資訊"; // 即時定位不抓羅盤，保留為無資訊
             navigator.geolocation.getCurrentPosition(
                 (p) => updateLocation(p.coords.latitude, p.coords.longitude, "📍 即時設備定位"),
                 (e) => { gpsStatus.innerHTML = "❌ 定位失敗，請點擊地圖。"; submitBtn.disabled = false; submitBtn.innerText = "請先確認定位"; },
@@ -170,21 +190,27 @@
                     let latRef = EXIF.getTag(this, "GPSLatitudeRef");
                     let lonRef = EXIF.getTag(this, "GPSLongitudeRef");
                     let dateObj = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
-                    resolve({ lat, lon, latRef, lonRef, dateObj });
+                    let dir = EXIF.getTag(this, "GPSImgDirection"); // ✨ 抓取拍攝方位角
+                    resolve({ lat, lon, latRef, lonRef, dateObj, dir });
                 });
             });
         }
 
-        // 5. 照片選擇觸發
         document.getElementById('photoInput').onchange = async function(e) {
             const file = e.target.files[0];
             if (!file) return;
 
             submitBtn.disabled = true;
             globalExifDate = null; 
+            globalAzimuth = "無資訊";
 
             const exif = await extractExifData(file);
             
+            // ✨ 處理方位角 (四捨五入到整數)
+            if (exif.dir !== undefined && !isNaN(exif.dir)) {
+                globalAzimuth = Math.round(Number(exif.dir));
+            }
+
             if (exif.lat && exif.lon) {
                 const fmt = (c, r) => (c[0] + c[1]/60 + c[2]/3600) * (r === "S" || r === "W" ? -1 : 1);
                 updateLocation(fmt(exif.lat, exif.latRef), fmt(exif.lon, exif.lonRef), "📸 使用相片原始坐標");
@@ -215,7 +241,6 @@
             }
         };
 
-        // 影像處理
         async function processImage(file) {
             return new Promise(r => {
                 const img = new Image();
@@ -229,10 +254,10 @@
                     let watermarkDate = globalExifDate;
                     if (!watermarkDate) {
                         const d = new Date();
-                        watermarkDate = `${d.getFullYear()}-/${(d.getMonth()+1).toString().padStart(2,'0')}-/${d.getDate().toString().padStart(2,'0')}`;
+                        watermarkDate = `${d.getFullYear()}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')}`;
                     }
 
-                    ctx.font = "bold 120px Arial"; ctx.fillStyle = "red"; ctx.textAlign = "right";
+                    ctx.font = "bold 48px Arial"; ctx.fillStyle = "red"; ctx.textAlign = "right";
                     ctx.fillText(watermarkDate, 2950, 1950);
                     r(cvs.toDataURL('image/jpeg', 0.85).split(',')[1]);
                 };
@@ -240,7 +265,6 @@
             });
         }
 
-        // 6. 表單提交
         document.getElementById('surveyForm').onsubmit = async (e) => {
             e.preventDefault();
             uploadLoader.classList.replace('hidden', 'flex');
@@ -254,8 +278,10 @@
                 longitude: document.getElementById('lon').value,
                 twd97_x: document.getElementById('twd97x').value,
                 twd97_y: document.getElementById('twd97y').value,
+                azimuth: globalAzimuth !== "無資訊" ? `${globalAzimuth}° (${getDirectionName(globalAzimuth)})` : "無資訊", // ✨ 送出方位角與中文名稱
                 road_name: roadNameInput.value,
                 note: noteArea.value,
+                exif_date: globalExifDate || "無紀錄",
                 photo_base64: b64
             };
 
